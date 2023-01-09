@@ -23,6 +23,21 @@ check_vulnerable() {
         echo "sed -i 's/PermitRootLogin .*$/PermitRootLogin No/' /etc/ssh/sshd_config" >> active.sh
     fi
 
+    echo 'U-01: /etc/pam.d/login'
+    CHK=`cat /etc/pam.d/login | grep -i "pam_securetty.so"`
+    
+    if [ "$CHK" == '' ];then
+        MSG='...Vulnerable'
+    else
+        MSG='...OK'
+    fi
+
+    echo $MSG
+
+    if [ $MSG == '...Vulnerable' ];then
+        echo 'echo "auth	required	`find / -name pam_securetty.so -type f 2>/dev/null`" >> /etc/pam.d/login' >> active.sh
+    fi
+
 
     echo ''
     #U-02
@@ -107,9 +122,8 @@ check_vulnerable() {
     echo ''
     #U-07
     echo 'U-07: Permission /etc/passwd'
-    PERM=`ls -l /etc/passwd | cut -d " " -f1`
-    OWNR=`ls -l /etc/passwd | cut -d " " -f3`
-    if [ $PERM == '-rw-r--r--' ] && [ $OWNR == 'root' ];then
+    PERM=`find /etc/passwd ! -perm /133 -user root 2>/dev/null` #perm -le 644 
+    if [ -n "$PERM" ];then
         echo "...OK"
     else
         echo "...Vulnerable"
@@ -121,9 +135,8 @@ check_vulnerable() {
     echo ''
     #U-08
     echo 'U-08: Permission /etc/shadow'
-    PERM=`ls -l /etc/shadow | cut -d " " -f1`
-    OWNR=`ls -l /etc/shadow | cut -d " " -f3`
-    if [ $PERM == '-r--------' ] && [ $OWNR == 'root' ];then
+    PERM=`find /etc/shadow ! -perm /377 -user root 2>/dev/null` #perm -le 400
+    if [ -n "$PERM" ];then
         echo "...OK"
     else
         echo "...Vulnerable"
@@ -135,9 +148,8 @@ check_vulnerable() {
     echo ''
     #U-09
     echo 'U-09: Permission /etc/hosts'
-    PERM=`ls -l /etc/hosts | cut -d " " -f1`
-    OWNR=`ls -l /etc/hosts | cut -d " " -f3`
-    if [ $PERM == '-rw-------' ] && [ $OWNR == 'root' ];then
+    PERM=`find /etc/hosts ! -perm /177 -user root 2>/dev/null` #perm -le 600
+    if [ -n "$PERM" ];then
         echo "...OK"
     else
         echo "...Vulnerable"
@@ -149,9 +161,8 @@ check_vulnerable() {
     echo ''
     #U-12
     echo 'U-12: Permission /etc/services'
-    PERM=`ls -l /etc/services | cut -d " " -f1`
-    OWNR=`ls -l /etc/services | cut -d " " -f3`
-    if [ $PERM == '-rw-r--r--' ] && [ $OWNR == 'root' ];then
+    PERM=`find /etc/services ! -perm /133 \( -user root -o -user bin \) 2>/dev/null` #perm -le 644
+    if [ -n "$PERM" ];then
         echo "...OK"
     else
         echo "...Vulnerable"
@@ -172,7 +183,7 @@ check_vulnerable() {
     echo ''
     #U-14
     echo 'U-14: Permission Startup/ENV'
-    FILES=`find ~ -type f -name ".*" -perm /002 2>/dev/null`
+    FILES=`find ~ -type f -name ".*" -perm /002 -user root 2>/dev/null`
     if [ "$FILES" != '' ];then 
         echo "...Vulnerable"
         for FILE in $FILES
@@ -183,6 +194,40 @@ check_vulnerable() {
     else
         echo "...OK"
     fi
+
+
+    echo ''
+    #U-15
+    echo 'U-15: World Writable File'
+    FILES=`find / ! \( -path '/proc' -prune \) -type f -perm -2 2>/dev/null`
+    if [ "$FILES" != '' ];then
+        echo "...Vulnerable"
+        for FILE in $FILES
+        do
+            echo $FILE
+            echo "chmod o-w $FILE" >> active.sh
+        done
+    else
+        echo "...OK"
+    fi
+
+
+    echo ''
+    #U-16
+    echo 'U-16: Not Exist Device File in /dev'
+    FILES=`find /dev -type f 2>/dev/null`
+    if [ "$FILES" != '' ];then
+        echo "...Vulnerable"
+        for FILE in $FILES
+        do
+            echo $FILE
+            echo "rm -f $FILE" >> active.sh
+        done
+    else
+        echo "...OK"
+    fi
+        
+
 }
 
 
