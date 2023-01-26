@@ -228,6 +228,119 @@ check_vulnerable() {
     fi
         
 
+    echo ''
+    #U-20
+    echo 'U-20: Disable Anonymous FTP'
+    ANONY_FTP=`cat /etc/vsftpd/vsftpd.conf | grep anonymous_enable | cut -d "=" -f2`
+    if [ "${ANONY_FTP^^}" != "NO" ];then
+        echo "...Vulnerable"
+        MSG=`cat /etc/vsftpd/vsftpd.conf | grep anonymous_enable`
+        echo "sed -i 's/$MSG/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf" >> active.sh
+    else
+        echo "...OK"
+    fi       
+
+
+    echo ''
+    #U-23
+    echo 'U-23: Disable echo, daytime, discard, chargen Services'
+    FILENAME=("echo" "discard" "daytime" "chargen")
+    DGST=("dgram" "stream")
+    MSG="...OK"
+    
+    for filename in ${FILENAME[@]}
+    do
+        for dgst in ${DGST[@]}
+        do
+            GET_OPT=`cat /etc/xinetd.d/$filename-$dgst | grep disable | cut -d "=" -f2`
+            GET_OPT=${GET_OPT/ /}
+            GET_OPT=${GET_OPT,,}
+            if [ "$GET_OPT" != "yes" ]; then
+                MSG="...Vulnerable"
+                # 추후 작업 필요
+            fi
+        done
+    done
+    
+    echo $MSG
+
+
+    echo ''
+    #U-24
+    echo 'U-24: NFS DIR List'
+    NFS_DIR=`exportfs -v | cut -f1`
+    echo $NFS_DIR
+    echo "${NFS_DIR/ /\n}"
+
+
+    echo ''
+    #U-55
+    echo 'U-55: Disable|Permission /etc/hosts.lpd'
+    FILE=`find /etc/hosts.lpd \( ! -user root -o -perm /177 \) 2>/dev/null`
+    if [ -n "$FILE" ];then
+        echo "...Vulnerable"
+        echo 'chmod 600 /etc/hosts.lpd; chown root /etc/hosts.lpd' >> active.sh
+    else
+        echo "...OK"
+    fi
+
+
+    echo ''
+    #U-56
+    echo 'U-56: set umask'
+    FILES=`cat /etc/bashrc | grep -P "umask [0-9]+" | grep -o "[0-9]*"`
+    MSG='...OK'
+    for FILE in $FILES
+    do
+        if [ $FILE -lt 022 ] || [[ "$FILE" =~ '5' ]];then
+            echo "sed -i 's/umask $FILE/umask 022/' /etc/bashrc" >> active.sh
+            MSG='...Vulnerable'
+        fi
+    done
+
+    echo $MSG
+
+
+    echo ''
+    #U-57
+    echo 'U-57: Permission Home DIR'
+    MSG='...OK'
+    for NAME in `cat /etc/passwd | cut -d " " -f1`
+    do
+        if [ `echo $NAME | cut -d ":" -f3` -ge 1000 ] && [ "`echo $NAME | cut -d ':' -f1`" != 'nobody' ]; then
+            USER_NAME=`echo $NAME | cut -d ":" -f1`
+            if [ -n "`find /home/$USER_NAME \( ! -user $USER_NAME -o -perm /002 \) -type d`" ]; then
+                MSG='...Vulnerable'
+                echo "chown $USER_NAME:$USER_NAME /home/$USER_NAME" >> active.sh
+                echo "chmod o-w /home/$USER_NAME" >> active.sh
+            fi
+        fi
+    done
+
+    echo $MSG
+
+
+    echo ''
+    #U-58
+    echo 'U-58: Exists Home DIR'
+    MSG='...OK'
+    ARR_NAME=( `cat /etc/passwd | cut -d ":" -f1` )
+    ARR_GID=( `cat /etc/passwd | cut -d ":" -f4` )
+    ARR_UID=( `cat /etc/passwd | cut -d ":" -f3` )
+    ARR_DIR=( `cat /etc/passwd | cut -d ":" -f6` )
+    for (( num=0; num<${#ARR_UID[@]}; num++ ))
+    do
+        if [ ${ARR_UID[$num]} -ge 1000 ] && [ ${ARR_UID[$num]} -lt 65535 ] && [ "${ARR_NAME[$num]}" != 'nobody' ]; then  #find user account
+            if [ "${ARR_DIR[$num]}" != "/home/${ARR_NAME[$num]}" ]; then  #match /home/'user account'
+                MSG='...Vulnerable'
+                CHANGE=`cat /etc/passwd | grep ^${ARR_NAME[$num]}:`
+                echo "sed -i 's/${CHANGE//\//\\/}/${ARR_NAME[$num]}:x:${ARR_UID[$num]}:${ARR_GID[$num]}::\/home\/${ARR_NAME[$num]}:\/bin\/bash/' /etc/passwd" >> active.sh 
+            fi
+        fi
+    done
+    
+    echo $MSG
+
 }
 
 
