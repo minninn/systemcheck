@@ -199,7 +199,7 @@ check_vulnerable() {
     echo ''
     #U-15
     echo 'U-15: World Writable File'
-    FILES=`find / ! \( -path '/proc' -prune \) -type f -perm -2 2>/dev/null`
+    FILES=`find / ! \( -path '/proc' -prune \) ! \( -path '/sys/fs/cgroup/memory' -prune \) -type f -perm -2 2>/dev/null`
     if [ "$FILES" != '' ];then
         echo "...Vulnerable"
         for FILE in $FILES
@@ -215,7 +215,7 @@ check_vulnerable() {
     echo ''
     #U-16
     echo 'U-16: Not Exist Device File in /dev'
-    FILES=`find /dev -type f 2>/dev/null`
+    FILES=`find /dev ! \( -path '/dev/console' -prune \) -type f 2>/dev/null`
     if [ "$FILES" != '' ];then
         echo "...Vulnerable"
         for FILE in $FILES
