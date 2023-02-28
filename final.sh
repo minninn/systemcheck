@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#20230228 +windows
+
 rm -f active.sh
 touch active.sh
 chmod +x active.sh
