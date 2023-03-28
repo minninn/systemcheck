@@ -185,7 +185,7 @@ check_vulnerable() {
     echo ''
     #U-14
     echo 'U-14: Permission Startup/ENV'
-    FILES=`find ~ -type f -name ".*" -perm /002 -user root 2>/dev/null`
+    FILES=`find ~ -type f -name ".*" \( -perm /002 -o ! -user root \) 2>/dev/null`
     if [ "$FILES" != '' ];then 
         echo "...Vulnerable"
         for FILE in $FILES
